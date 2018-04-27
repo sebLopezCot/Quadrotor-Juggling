@@ -62,11 +62,11 @@ class Animator(object):
         self.cart_height = 0.05
         
         # set the limits based on the motion
-        self.xmin = -1#np.around(states[:, 0].min() - self.cart_width / 2.0, 1)
-        self.xmax = 1#np.around(states[:, 0].max() + self.cart_width / 2.0, 1)
+        self.xmin = -15 #np.around(states[:, 0].min() - self.cart_width / 2.0, 1)
+        self.xmax = 15 #np.around(states[:, 0].max() + self.cart_width / 2.0, 1)
         
         # create the axes
-        self.ax = plt.axes(xlim=(self.xmin, self.xmax), ylim=(-1, 1), aspect='equal')
+        self.ax = plt.axes(xlim=(self.xmin, self.xmax), ylim=(-5, 5), aspect='equal')
         
         # display the current time
         self.time_text = self.ax.text(0.04, 0.9, '', transform=self.ax.transAxes)
@@ -126,24 +126,27 @@ if __name__ == "__main__":
     time = dt * np.arange(steps)
 
     state = np.zeros((steps, 6))
-    state[0,2] = 0.1
-    state[0,1] = -2.0
-    state[0,0] = 1.0
+    state[0,0] = np.random.choice(np.linspace(-7, 7, 20))
+    state[0,1] = np.random.choice(np.linspace(-7, 7, 20))
+    state[0,2] = np.random.choice(np.linspace(-np.pi/3.0, np.pi/3.0, 20))
 
+    lastErr_x = 0.0
     lastErr_y = 0.0
     lastErr_th = 0.0
-
+    limit = 0.45
     desired_angle = 0.0
 
     for i in range(0,steps-1):
         error_x = state[i,0] - 0.0
-
+        dE_x = (error_x - lastErr_x) / dt
+        limit = min(0.45 * abs(error_x)/5.0, 0.25)
+        desired_angle = max(min(10000.0*error_x+ 10000.0*dE_x, limit), -limit) 
         error_y = 0.0 - state[i,1]
         error_th = desired_angle - state[i,2]
         dE_y = (error_y - lastErr_y) / dt
         dE_th = (error_th - lastErr_th) / dt
         force_command = 0.1*error_y + 0.3*dE_y + 0.981
-        roll_command = 1.0*error_th + 1.0*dE_th
+        roll_command = 4.0*error_th + 1.5*dE_th
         input_u = np.array([force_command, roll_command])
         state[i+1,:] = quad.step_dynamics(dt, state[i,:], input_u)
         lastErr_y = error_y
@@ -158,4 +161,4 @@ if __name__ == "__main__":
 
 
 
-
+ 
