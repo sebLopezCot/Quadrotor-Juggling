@@ -72,7 +72,7 @@ class BallQuadSystem(object):
         
         # We want to solve this for a certain number of knot points
         N = 100 # num knot points
-        time_used = (max_time - min_time) / 2.0
+        time_used = (max_time + min_time) / 2.0
         time_increment = time_used / (N+1)
         dt = time_increment
         time_array = np.arange(0.0, time_used, time_increment)
@@ -152,8 +152,12 @@ class BallQuadSystem(object):
         # Quadratic cost on the control input
         R_force = 1.0
         R_torque = 100.0
+        Q_quad_x = 100.0
+        Q_quad_y = 100.0
         mp.AddQuadraticCost(R_force * quad_u[:,0].dot(quad_u[:,0]))
         mp.AddQuadraticCost(R_torque * quad_u[:,1].dot(quad_u[:,1]))
+        mp.AddQuadraticCost(Q_quad_x * quad_q[:,0].dot(quad_q[:,1]))
+        mp.AddQuadraticCost(Q_quad_y * quad_q[:,1].dot(quad_q[:,1]))
 
         # Solve the optimization
         print "Number of decision vars: ", mp.num_vars()
