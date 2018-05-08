@@ -33,10 +33,8 @@ class BallQuadSystem(object):
         # Quadrotor
         a_f = quad_u[0] * 1.0 / self.quad_mass
         r_ddot = quad_u[1]
-        #tang = np.array([cos(quad_q[2]), sin(quad_q[2])])
-        #norm = np.array([-sin(quad_q[2]), cos(quad_q[2])])
-        norm = np.array([cos(quad_q[2]), sin(quad_q[2])])
-        tang = np.array([-sin(quad_q[2]), cos(quad_q[2])])
+        tang = np.array([cos(quad_q[2]), sin(quad_q[2])])
+        norm = np.array([-sin(quad_q[2]), cos(quad_q[2])])
         pos_ddot = norm * a_f + self.g_vec
 
         quad_next = np.zeros_like(quad_q)
@@ -69,11 +67,11 @@ class BallQuadSystem(object):
 
         return quad_next, ball_next
 
-    def solve(self, quad_start_q, ball_start_q, ball_final_q, min_time, max_time):
+    def solve(self, quad_start_q, quad_final_q, ball_start_q, ball_final_q, min_time, max_time):
         mp = MathematicalProgram()
         
         # We want to solve this for a certain number of knot points
-        N = 50 # num knot points
+        N = 100 # num knot points
         time_used = (max_time - min_time) / 2.0
         time_increment = time_used / (N+1)
         dt = time_increment
@@ -131,21 +129,21 @@ class BallQuadSystem(object):
             # Direct transcription constraints on states to dynamics
             for j in range(6):
                 quad_state_err = (quad_q[i][j] - quad_q_dyn_feasible[j])
-                eps = 0.001
+                eps = 0.01
                 mp.AddConstraint(quad_state_err <= eps)
                 mp.AddConstraint(quad_state_err >= -eps)
 
-            for j in range(4):
-                ball_state_err = (ball_q[i][j] - ball_q_dyn_feasible[j])
-                eps = 0.001
-                mp.AddConstraint(ball_state_err <= eps)
-                mp.AddConstraint(ball_state_err >= -eps)
+            #for j in range(4):
+            #    ball_state_err = (ball_q[i][j] - ball_q_dyn_feasible[j])
+            #    eps = 0.001
+            #    mp.AddConstraint(ball_state_err <= eps)
+            #    mp.AddConstraint(ball_state_err >= -eps)
 
 
         # Initial and final quad and ball states
         for j in range(6):
             mp.AddLinearConstraint(quad_q[0][j] == quad_start_q[j])
-            mp.AddLinearConstraint(quad_q[-1][j] == quad_start_q[j])
+            mp.AddLinearConstraint(quad_q[-1][j] == quad_final_q[j])
         
         for j in range(4):
             mp.AddLinearConstraint(ball_q[0][j] == ball_start_q[j])
@@ -153,7 +151,7 @@ class BallQuadSystem(object):
 
         # Quadratic cost on the control input
         R_force = 1.0
-        R_torque = 1.0
+        R_torque = 100.0
         mp.AddQuadraticCost(R_force * quad_u[:,0].dot(quad_u[:,0]))
         mp.AddQuadraticCost(R_torque * quad_u[:,1].dot(quad_u[:,1]))
 
@@ -175,36 +173,4 @@ class SystemVisualizer(object):
 
     def visualize(self):
         pass
-
-if __name__ == "__main__":
-    
-    min_time = 3.0
-    max_time = 8.0
-    
-    initial_quad_state = np.zeros(6)
-    initial_quad_state[0] = 0.0
-    initial_quad_state[1] = 0.0
-    initial_quad_state[2] = 0.0
-    initial_quad_state[3] = 0.0
-    initial_quad_state[4] = 0.0
-    initial_quad_state[5] = 0.0
-
-    vlaunch = 11.5
-    theta = 60.0 * np.pi / 180.0
-
-    initial_ball_state = np.zeros(4)
-    initial_ball_state[0] = -2.0*(vlaunch)**2 * np.sin(theta) * np.cos(theta) / 9.81
-    initial_ball_state[1] = 0.0
-    initial_ball_state[2] = vlaunch * np.cos(theta) 
-    initial_ball_state[3] = vlaunch * np.sin(theta)
-
-    final_ball_state = np.copy(initial_ball_state)
-    final_ball_state[2:4] *= -1.0
-
-    quad_mass = 0.1
-    g = -9.81
-    beta = 1.0
-
-    bqs = BallQuadSystem(quad_mass, g, beta)
-    quad_traj, ball_traj, input_traj = bqs.solve(initial_quad_state, initial_ball_state, final_ball_state, min_time, max_time)
 
