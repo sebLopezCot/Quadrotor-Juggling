@@ -49,7 +49,7 @@ class BallQuadSystem(object):
         ball_q_cp = np.copy(ball_q)
         
         # Collision
-        epsilon = 0.1
+        epsilon = 1.0
         # Carefully, might hit singularity here of flipping indefinitely
         tan_comp = np.dot(ball_q_cp[2:4], tang) * tang
         norm_comp = np.dot(ball_q_cp[2:4], norm) * norm
@@ -75,7 +75,7 @@ class BallQuadSystem(object):
         time_used = (max_time - min_time) / 2.0
         time_increment = time_used / (N+1)
         dt = time_increment
-        time_increment = np.arange(0.0, time_used, time_increment)
+        time_array = np.arange(0.0, time_used, time_increment)
 
         quad_u = mp.NewContinuousVariables(2, "u_0")
         quad_q = mp.NewContinuousVariables(6, "quad_q_0")
@@ -133,11 +133,11 @@ class BallQuadSystem(object):
                 mp.AddConstraint(quad_state_err <= eps)
                 mp.AddConstraint(quad_state_err >= -eps)
 
-            #for j in range(4):
-            #    ball_state_err = (ball_q[i][j] - ball_q_dyn_feasible[j])
-            #    eps = 0.001
-            #    mp.AddConstraint(ball_state_err <= eps)
-            #    mp.AddConstraint(ball_state_err >= -eps)
+            for j in range(4):
+                ball_state_err = (ball_q[i][j] - ball_q_dyn_feasible[j])
+                eps = 0.01
+                mp.AddConstraint(ball_state_err <= eps)
+                mp.AddConstraint(ball_state_err >= -eps)
 
 
         # Initial and final quad and ball states
@@ -164,7 +164,7 @@ class BallQuadSystem(object):
         ball_traj = mp.GetSolution(ball_q)
         input_traj = mp.GetSolution(quad_u)
 
-        return (quad_traj, ball_traj, input_traj)
+        return (quad_traj, ball_traj, input_traj, time_array)
 
 class SystemVisualizer(object):
 
