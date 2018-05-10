@@ -8,18 +8,9 @@ import scipy as sp
 from pydrake.all import MathematicalProgram
 from pydrake.symbolic import (sin, cos, tanh)
 
-#def cos(x):
-#    return 1.0 - (x**2.0)/2.0 + (x**4.0)/24.0 - (x**6.0)/720.0
-#
-#def sin(x):
-#    return x - (x**3.0)/6.0 + (x**5.0)/120.0 - (x**7.0)/5040.0
-
 def two_norm(x):
     slack = .001
     return (((x)**2).sum() + slack)**0.5
-
-#def tanh(x):
-#    return x - (x**3.0)/3.0 + 2.0*(x**5.0)/15.0 - 17.0*(x**7.0)/315.0
 
 class BallQuadSystem(object):
 
