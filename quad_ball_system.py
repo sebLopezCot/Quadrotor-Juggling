@@ -58,12 +58,11 @@ class BallQuadSystem(object):
 
         return quad_next, ball_next
 
-    def solve(self, quad_start_q, quad_final_q, ball_start_q, ball_final_q, min_time, max_time):
+    def solve(self, quad_start_q, quad_final_q, ball_start_q, ball_final_q, time_used):
         mp = MathematicalProgram()
         
         # We want to solve this for a certain number of knot points
         N = 100 # num knot points
-        time_used = (max_time + min_time) / 2.0
         time_increment = time_used / (N+1)
         dt = time_increment
         time_array = np.arange(0.0, time_used, time_increment)
@@ -92,8 +91,8 @@ class BallQuadSystem(object):
             mp.AddLinearConstraint(quad_u[i][1] <= 100.0) # torque
             mp.AddLinearConstraint(quad_u[i][1] >= -100.0) # torque
 
-            mp.AddLinearConstraint(quad_q[i][0] <= 1000.0) # pos x
-            mp.AddLinearConstraint(quad_q[i][0] >= -1000.0)
+            mp.AddLinearConstraint(quad_q[i][0] <= 100.0) # pos x
+            mp.AddLinearConstraint(quad_q[i][0] >= -100.0)
             mp.AddLinearConstraint(quad_q[i][1] <= 1000.0) # pos y
             mp.AddLinearConstraint(quad_q[i][1] >= -1000.0)
             mp.AddLinearConstraint(quad_q[i][2] <= 60.0 * np.pi / 180.0) # pos theta
@@ -138,7 +137,9 @@ class BallQuadSystem(object):
         
         for j in range(4):
             mp.AddLinearConstraint(ball_q[0][j] == ball_start_q[j])
-            mp.AddLinearConstraint(ball_q[-1][j] == ball_final_q[j])
+            if j < 3:
+                mp.AddLinearConstraint(ball_q[-1][j] == ball_final_q[j])
+                
 
         # Quadratic cost on the control input
         R_force = 1.0
