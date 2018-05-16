@@ -39,7 +39,7 @@ class QuadDirectTranscription(object):
         mp = MathematicalProgram()
         
         # We want to solve this for a certain number of knot points
-        N = 20 # num knot points
+        N = 40 # num knot points
         time_increment = time_used / (N+1)
         dt = time_increment
         time_array = np.arange(0.0, time_used, time_increment)
@@ -79,7 +79,7 @@ class QuadDirectTranscription(object):
             # Direct transcription constraints on states to dynamics
             for j in range(6):
                 quad_state_err = (quad_q[i][j] - quad_q_dyn_feasible[j])
-                eps = 0.01
+                eps = 0.001
                 mp.AddConstraint(quad_state_err <= eps)
                 mp.AddConstraint(quad_state_err >= -eps)
 
@@ -89,7 +89,7 @@ class QuadDirectTranscription(object):
             mp.AddLinearConstraint(quad_q[-1][j] == quad_final_q[j])
         
         # Quadratic cost on the control input
-        R_force = 1.0
+        R_force = 10.0
         R_torque = 100.0
         Q_quad_x = 100.0
         Q_quad_y = 100.0
