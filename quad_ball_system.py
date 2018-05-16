@@ -19,13 +19,14 @@ def two_norm(x):
 
 class BallQuadSystem(object):
 
-    def __init__(self, quad_mass, g, restitution_coeff):
+    def __init__(self, quad_mass, ball_mass, g, restitution_coeff):
         self.quad_mass = quad_mass
+        self.ball_mass = ball_mass
         self.g = g
         self.g_vec = np.array([0.0, self.g])
         self.restitution_coeff = restitution_coeff
 
-    def dynamics(self, quad_q, ball_q, quad_u, dt):
+    def dynamics(self, mp, contacts, last_dist, quad_q, ball_q, quad_u, dt):
         # Quadrotor
         a_f = quad_u[0] * 1.0 / self.quad_mass
         r_ddot = quad_u[1]
@@ -52,16 +53,24 @@ class BallQuadSystem(object):
         beta = self.restitution_coeff
         bounce_factor = tan_comp - beta * norm_comp # flipped the normal component
         dist_to_collision = two_norm(ball_q_cp[0:2] - quad_q[0:2])
-        activation = tanh((1.0/epsilon)*dist_to_collision)
-        ball_q_cp[2:4] = ball_q_cp[2:4] * activation + bounce_factor * (1.0 - activation)
+        # activation = tanh((1.0/epsilon)*dist_to_collision)
+        # ball_q_cp[2:4] = ball_q_cp[2:4] * activation + bounce_factor * (1.0 - activation)
+        
+        mp.AddConstraint(contacts[0] >= 0.0)
+        mp.AddConstraint(dist_to_collision >= 0.0)
+        mp.AddConstraint(dist_to_collision * contacts[0] == 0.0)
+
+        J = (dist_to_collision - last_dist) / dt
+        a_J = J / self.ball_mass
+        a_J_comps = norm * a_J
 
         ball_next = np.zeros_like(ball_q)
-        ball_next[0] = ball_q_cp[0] + ball_q_cp[2]*dt
-        ball_next[1] = ball_q_cp[1] + ball_q_cp[3]*dt + 0.5*self.g*dt**2.0
-        ball_next[2] = ball_q_cp[2] + 0.0
-        ball_next[3] = ball_q_cp[3] + self.g*dt
+        ball_next[0] = ball_q_cp[0] + ball_q_cp[2]*dt + 0.5*a_J_comps[0]*dt**2.0
+        ball_next[1] = ball_q_cp[1] + ball_q_cp[3]*dt + 0.5*self.g*dt**2.0 + 0.5*a_J_comps[1]*dt**2.0
+        ball_next[2] = ball_q_cp[2] + a_J_comps[0]*dt
+        ball_next[3] = ball_q_cp[3] + self.g*dt + a_J_comps[1]*dt
 
-        return quad_next, ball_next
+        return quad_next, ball_next, dist_to_collision
 
     def solve(self, quad_start_q, quad_final_q, ball_start_q, ball_final_q, time_used):
         mp = MathematicalProgram()
@@ -75,20 +84,23 @@ class BallQuadSystem(object):
         quad_u = mp.NewContinuousVariables(2, "u_0")
         quad_q = mp.NewContinuousVariables(6, "quad_q_0")
         ball_q = mp.NewContinuousVariables(4, "ball_q_0")
-
+        contacts = mp.NewContinuousVariables(1, "contacts_0")
 
         for i in range(1,N):
             u = mp.NewContinuousVariables(2, "u_%d" % i)        
             quad = mp.NewContinuousVariables(6, "quad_q_%d" % i)
             ball = mp.NewContinuousVariables(4, "ball_q_%d" % i)
+            contact = mp.NewContinuousVariables(1, "contacts_%d" % i)
 
             quad_u = np.vstack((quad_u, u))
             quad_q = np.vstack((quad_q, quad))
             ball_q = np.vstack((ball_q, ball))
+            contacts = np.vstack((contacts, contact))
 
         assert(quad_u.shape == (N, 2))
         assert(quad_q.shape == (N, 6))
         assert(ball_q.shape == (N, 4))
+        assert(contacts.shape == (N, 1))
 
         for i in range(N):
             mp.AddLinearConstraint(quad_u[i][0] <= 100.0) # force
@@ -118,8 +130,10 @@ class BallQuadSystem(object):
             mp.AddLinearConstraint(ball_q[i][3] <= 100.0) # vel y
             mp.AddLinearConstraint(ball_q[i][3] >= -100.0)
 
+        last_dist = 0.0
+
         for i in range(1,N):
-            quad_q_dyn_feasible, ball_q_dyn_feasible = self.dynamics(quad_q[i-1,:], ball_q[i-1,:], quad_u[i-1,:], dt)
+            quad_q_dyn_feasible, ball_q_dyn_feasible, last_dist = self.dynamics(mp, contacts[i-1,:], last_dist, quad_q[i-1,:], ball_q[i-1,:], quad_u[i-1,:], dt)
             
             # Direct transcription constraints on states to dynamics
             for j in range(6):
