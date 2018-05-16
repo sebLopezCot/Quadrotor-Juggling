@@ -5,6 +5,31 @@ import matplotlib.pyplot as plt
 from matplotlib import animation
 from matplotlib.patches import Rectangle, Circle
 
+class ContactingSwitch(object):
+
+    def __init__(self):
+        self.STATE_NO_CONTACT = 0
+        self.STATE_FIRST_CONTACT = 1
+        self.STATE_CONTACTING = 2
+
+        self.state = self.STATE_NO_CONTACT
+
+    def leads_to_contact(self, contact):
+        if contact and self.state == self.STATE_NO_CONTACT:
+            self.state = self.STATE_FIRST_CONTACT
+        elif contact and self.state == self.STATE_CONTACTING:
+            pass
+        elif contact and self.state == self.STATE_FIRST_CONTACT:
+            self.state = self.STATE_CONTACTING
+        elif not contact and self.state == self.STATE_NO_CONTACT:
+            pass
+        elif not contact and self.state == self.STATE_CONTACTING:
+            self.state = self.STATE_NO_CONTACT
+        elif not contact and self.state == self.STATE_FIRST_CONTACT:
+            self.state = self.STATE_NO_CONTACT
+
+        return self.state == self.STATE_FIRST_CONTACT
+
 class Quadrotor(object):
     
     def __init__(self):
@@ -16,7 +41,6 @@ class Quadrotor(object):
         self.min_f = 0.0
         self.max_roll = 1.0
         self.min_roll = -1.0
-        self.restitution = 1.0
 
     def step_dynamics(self, t, state, u):
         a_f = u[0] * 1.0 / self.m
@@ -39,10 +63,18 @@ class Ball(object):
     def __init__(self):
         self.m = 0.001
         self.g = -9.81
+        self.restitution = 0.6
 
-    def step_dynamics(self, t, state, contact):
+    def step_dynamics(self, t, state, quad_state, contact, contact_dir):
         if contact:
-            state[3] = -state[3]*0.9
+            print state[2:4]
+            tang = np.array([[0.0, 1.0], [-1.0, 0.0]]).dot(contact_dir)
+            tang_comp = tang * state[2:4].dot(tang) if abs(np.linalg.norm(state[2:4])) > 1e-6 else np.zeros(2)
+            print "tang_comp", tang_comp
+            norm_comp = contact_dir * state[2:4].dot(contact_dir) if abs(np.linalg.norm(state[2:4])) > 1e-6 else np.zeros(2)
+            print "norm_comp", norm_comp
+            state[2:4] = tang_comp - norm_comp*self.restitution + quad_state[3:5]
+            print state[2:4]
         
         state[0] += state[2]*t
         state[1] += state[3]*t + 0.5*self.g*t**2.0
@@ -70,7 +102,7 @@ class Animator(object):
         self.xmax = 5 #np.around(quad_states[:, 0].max() + self.cart_width / 2.0, 1)
         
         # create the axes
-        self.ax = plt.axes(xlim=(self.xmin, self.xmax), ylim=(-5, 5), aspect='equal')
+        self.ax = plt.axes(xlim=(self.xmin, self.xmax), ylim=(-1, 10), aspect='equal')
         
         # display the current time
         self.time_text = self.ax.text(0.04, 0.9, '', transform=self.ax.transAxes)
@@ -128,9 +160,11 @@ if __name__ == "__main__":
 
     quad = Quadrotor()
     ball = Ball()
+    sw = ContactingSwitch()
 
-    dt = 0.1
-    steps = 1000
+    dt = 0.0001
+    steps = 30000
+    downsample = 60
 
     time = dt * np.arange(steps)
 
@@ -145,34 +179,23 @@ if __name__ == "__main__":
     ball_state[0, 2] = 0.0 #-2.0
     ball_state[0, 3] = 0.0 #15.0
 
-    lastErr_x = 0.0
-    lastErr_y = 0.0
-    lastErr_th = 0.0
     limit = 0.45
-    desired_angle = 0.0
+    collision_thresh = 0.05
+
+    input_u = np.array([2.2, 0.0])
 
     for i in range(0,steps-1):
-        contact = (np.linalg.norm(ball_state[i,0:2] - quad_state[i,0:2]) < 0.5)
-        ball_state[i+1,:] = ball.step_dynamics(dt, ball_state[i,:], contact)
-        error_x = quad_state[i,0] - 0.0
-        dE_x = (error_x - lastErr_x) / dt
-        limit = min(0.45 * abs(error_x)/5.0, 0.25)
-        desired_angle = max(min(10000.0*error_x+ 10000.0*dE_x, limit), -limit) 
-        error_y = 0.0 - quad_state[i,1]
-        error_th = desired_angle - quad_state[i,2]
-        dE_y = (error_y - lastErr_y) / dt
-        dE_th = (error_th - lastErr_th) / dt
-        force_command = 0.1*error_y + 0.3*dE_y + 0.981
-        roll_command = 4.0*error_th + 1.5*dE_th
-        input_u = np.array([force_command, roll_command])
+        contact = (np.linalg.norm(ball_state[i,0:2] - quad_state[i,0:2]) < collision_thresh)
+        contact = sw.leads_to_contact(contact)
+        if contact:
+            print "CONTACT"
+        contact_dir = np.array([-np.sin(ball_state[i,2]), np.cos(ball_state[i,2])])
         quad_state[i+1,:] = quad.step_dynamics(dt, quad_state[i,:], input_u)
-        lastErr_y = error_y
-        lastErr_th = error_th
-        lastErr_x = error_x
+        ball_state[i+1,:] = ball.step_dynamics(dt, ball_state[i,:], quad_state[i,:], contact, contact_dir)
 
     quad_state = np.reshape(quad_state[:,0:3], (steps, 3))
 
-    a = Animator(time, quad_state, ball_state)
+    a = Animator(time[::downsample], quad_state[::downsample], ball_state[::downsample])
 
 
 
