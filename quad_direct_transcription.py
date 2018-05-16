@@ -60,16 +60,16 @@ class QuadDirectTranscription(object):
             mp.AddLinearConstraint(quad_u[i][1] <= 10.0) # torque
             mp.AddLinearConstraint(quad_u[i][1] >= -10.0) # torque
 
-            mp.AddLinearConstraint(quad_q[i][0] <= 100.0) # pos x
-            mp.AddLinearConstraint(quad_q[i][0] >= -100.0)
+            mp.AddLinearConstraint(quad_q[i][0] <= 1000.0) # pos x
+            mp.AddLinearConstraint(quad_q[i][0] >= -1000.0)
             mp.AddLinearConstraint(quad_q[i][1] <= 1000.0) # pos y
             mp.AddLinearConstraint(quad_q[i][1] >= -1000.0)
             mp.AddLinearConstraint(quad_q[i][2] <= 60.0 * np.pi / 180.0) # pos theta
             mp.AddLinearConstraint(quad_q[i][2] >= -60.0 * np.pi / 180.0)
-            mp.AddLinearConstraint(quad_q[i][3] <= 100.0) # vel x
-            mp.AddLinearConstraint(quad_q[i][3] >= -100.0)
-            mp.AddLinearConstraint(quad_q[i][4] <= 100.0) # vel y
-            mp.AddLinearConstraint(quad_q[i][4] >= -100.0)
+            mp.AddLinearConstraint(quad_q[i][3] <= 1000.0) # vel x
+            mp.AddLinearConstraint(quad_q[i][3] >= -1000.0)
+            mp.AddLinearConstraint(quad_q[i][4] <= 1000.0) # vel y
+            mp.AddLinearConstraint(quad_q[i][4] >= -1000.0)
             mp.AddLinearConstraint(quad_q[i][5] <= 10.0) # vel theta
             mp.AddLinearConstraint(quad_q[i][5] >= -10.0)
 
