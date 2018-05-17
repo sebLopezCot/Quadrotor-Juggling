@@ -10,19 +10,31 @@ from quad_direct_transcription import QuadDirectTranscription
 
 class TimeInterpolator(object):
 
-    def __init__(self, time_arr, traj, interp_steps, dt):
+    def __init__(self, time_arr, traj, interp_steps, dt, start_time=0):
+        print "Constructing time interpolator..."
+
         self.interps = [scipy.interpolate.interp1d(time_arr[:-1], traj[:,i]) for i in range(traj.shape[1])]
         self.cutoff_index = np.inf
 
         q = len(self.interps)
         self.interp_traj = np.zeros((interp_steps, q))
 
-        for i in range(0,interp_steps):
+        loophalted = False
+        for i in range(int(start_time/dt), interp_steps):
+            if i*dt < start_time:
+                continue
             for j in range(q):
                 try:
-                    self.interp_traj[i,j] = self.interps[j](i*dt)
+                    self.interp_traj[i,j] = self.interps[j](i*dt - start_time)
                 except:
-                    self.cutoff_index = min(self.cutoff_index, i)
+                    self.cutoff_index = i
+                    loophalted = True
+                    break
+
+            if loophalted:
+                break
+
+        print "Done constructing time interpolator!"
 
     def __getitem__(self, i):
         return self.interp_traj[i,:]
@@ -142,7 +154,7 @@ class Animator(object):
         self.cart_height = 0.05
         
         # set the limits based on the motion
-        self.xmin = -10 #np.around(quad_states[:, 0].min() - self.cart_width / 2.0, 1)
+        self.xmin = -20 #np.around(quad_states[:, 0].min() - self.cart_width / 2.0, 1)
         self.xmax = 10 #np.around(quad_states[:, 0].max() + self.cart_width / 2.0, 1)
         
         # create the axes
