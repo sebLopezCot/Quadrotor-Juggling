@@ -4,22 +4,46 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import animation
 from matplotlib.patches import Rectangle, Circle
+import scipy.interpolate
 
 from quad_direct_transcription import QuadDirectTranscription
+
+class TimeInterpolator(object):
+
+    def __init__(self, time_arr, traj, interp_steps, dt):
+        self.interps = [scipy.interpolate.interp1d(time_arr[:-1], traj[:,i]) for i in range(traj.shape[1])]
+        self.cutoff_index = np.inf
+
+        q = len(self.interps)
+        self.interp_traj = np.zeros((interp_steps, q))
+
+        for i in range(0,interp_steps):
+            for j in range(q):
+                try:
+                    self.interp_traj[i,j] = self.interps[j](i*dt)
+                except:
+                    self.cutoff_index = min(self.cutoff_index, i)
+
+    def __getitem__(self, i):
+        return self.interp_traj[i,:]
+
+    def get_cutoff_index(self):
+        return self.cutoff_index
 
 class ProjectileMath(object):
 
     @staticmethod
     def calc_arch_info(start_of_rainbow):
-        theta = np.arctan(start_of_rainbow[3] / start_of_rainbow[2]) if abs(start_of_rainbow[2]) > 1e-6 else 0.0
-        vlaunch = start_of_rainbow[3] / np.sin(theta) if abs(np.sin(theta)) > 1e-6 else 0.0
+        theta = np.sign(start_of_rainbow[2]) * np.arctan(abs(start_of_rainbow[3]) / abs(start_of_rainbow[2])) if abs(start_of_rainbow[2]) > 1e-6 else 0.0
+        norm = np.array([np.cos(theta), np.sin(theta)])
+        vlaunch = norm * start_of_rainbow[3] / np.sin(theta) if abs(np.sin(theta)) > 1e-6 else np.zeros(2)
         vland = vlaunch
         vland[1] *= -1.0
-        rainbow_width = 2.0*vlaunch**2.0 * np.sin(theta) * np.cos(theta) / 9.81
+        rainbow_width = 2.0*np.linalg.norm(vlaunch)**2.0 * np.sin(abs(theta)) * np.cos(theta) / 9.81
         rainbow_height = start_of_rainbow[3]**2.0 / 2.0 / 9.81
-        travel_time = rainbow_width / (start_of_rainbow[2]) if abs(start_of_rainbow[2]) > 1e-6 else 0.0
+        travel_time = rainbow_width / (abs(start_of_rainbow[2])) if abs(start_of_rainbow[2]) > 1e-6 else 0.0
 
-        return (rainbow_width, rainbow_height, travel_time, vland)
+        return (rainbow_width, rainbow_height, travel_time, vland, theta)
 
     @staticmethod
     def get_drop_time(state):
